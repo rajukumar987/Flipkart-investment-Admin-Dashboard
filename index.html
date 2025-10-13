@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Firebase SDKs (compat for browser HTML) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+  <script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDPA2JTr8dt-rd0EefcmuevLhIs69rq6Z4",
+  authDomain: "flipkart-investment.firebaseapp.com",
+  databaseURL: "https://flipkart-investment-default-rtdb.firebaseio.com",
+  projectId: "flipkart-investment",
+  storageBucket: "flipkart-investment.firebasestorage.app",
+  messagingSenderId: "683911994891",
+  appId: "1:683911994891:web:553714a2b618b24163f10e",
+  measurementId: "G-5Z522FKDFS"
+};
+    firebase.initializeApp(firebaseConfig);
+  </script>
+</head>
+<body class="bg-gray-100 p-4 font-sans min-h-screen">
+  <!-- Admin Login -->
+  <div id="adminLogin" class="max-w-md mx-auto mt-10">
+    <div class="bg-white p-8 rounded-xl shadow">
+      <h2 class="text-2xl font-bold mb-6 text-center">Admin Login</h2>
+      <div id="adminLoginError" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 hidden">
+        Invalid admin credentials!
+      </div>
+      <div class="mb-4">
+        <label class="block text-gray-700 mb-2" for="adminUsername">Username</label>
+        <input id="adminUsername" class="w-full px-3 py-2 border rounded" type="text" placeholder="admin">
+      </div>
+      <div class="mb-6">
+        <label class="block text-gray-700 mb-2" for="adminPassword">Password</label>
+        <input id="adminPassword" class="w-full px-3 py-2 border rounded" type="password" placeholder="••••••••">
+      </div>
+      <button id="adminLoginButton" class="w-full bg-blue-500 text-white py-2 rounded mb-4">Login</button>
+    </div>
+  </div>
+
+  <!-- Admin Dashboard -->
+  <div id="adminDashboard" class="hidden">
+    <!-- Header -->
+    <div class="bg-white p-4 rounded-xl shadow mb-4 flex justify-between items-center">
+      <h2 class="text-xl font-bold">Admin Dashboard</h2>
+      <div class="flex items-center space-x-4">
+        <span id="onlineUsersCount" class="bg-green-100 text-green-800 px-3 py-1 rounded-full flex items-center">
+          <span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+          <span id="onlineCount">0</span> Online
+        </span>
+        <button id="adminLogoutButton" class="border px-4 py-2 rounded">Logout</button>
+      </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="notificationToast" class="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg hidden flex items-center z-50">
+      <span id="notificationMessage">Notification sent successfully!</span>
+      <button id="closeNotification" class="ml-4">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+      <div class="bg-white p-4 rounded-xl shadow">
+        <div class="flex justify-between items-center">
+          <div>
+            <p class="text-gray-500">Total Users</p>
+            <h3 class="text-2xl font-bold" id="totalUsers">0</h3>
+          </div>
+          <div class="bg-blue-100 p-3 rounded-full">
+            <i class="fas fa-users text-blue-500"></i>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow">
+        <div class="flex justify-between items-center">
+          <div>
+            <p class="text-gray-500">Total Deposits</p>
+            <h3 class="text-2xl font-bold text-green-600" id="totalDeposits">₹0</h3>
+          </div>
+          <div class="bg-green-100 p-3 rounded-full">
+            <i class="fas fa-money-bill-wave text-green-500"></i>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow">
+        <div class="flex justify-between items-center">
+          <div>
+            <p class="text-gray-500">Total Withdrawals</p>
+            <h3 class="text-2xl font-bold text-green-600" id="totalWithdrawals">₹0</h3>
+          </div>
+          <div class="bg-red-100 p-3 rounded-full">
+            <i class="fas fa-wallet text-red-500"></i>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow">
+        <div class="flex justify-between items-center">
+          <div>
+            <p class="text-gray-500">Total Investments</p>
+            <h3 class="text-2xl font-bold text-green-600" id="totalInvestments">₹0</h3>
+          </div>
+          <div class="bg-purple-100 p-3 rounded-full">
+            <i class="fas fa-chart-line text-purple-500"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pending Actions -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <div class="bg-white p-4 rounded-xl shadow">
+        <h2 class="text-xl font-bold mb-3 flex items-center">
+          <i class="fas fa-clock text-yellow-500 mr-2"></i>
+          Pending Deposit Approvals (<span id="pendingDepositsCount">0</span>)
+        </h2>
+        <div id="pendingDepositsList" class="space-y-3">
+          <p class="text-gray-500 text-center py-4">No pending deposits</p>
+        </div>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow">
+        <h2 class="text-xl font-bold mb-3 flex items-center">
+          <i class="fas fa-clock text-yellow-500 mr-2"></i>
+          Pending Withdrawal Requests (<span id="pendingWithdrawalsCount">0</span>)
+        </h2>
+        <div id="pendingWithdrawalsList" class="space-y-3">
+          <p class="text-gray-500 text-center py-4">No pending withdrawals</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- All Users -->
+    <div class="bg-white p-4 rounded-xl shadow mb-4">
+      <div class="flex justify-between items-center mb-3">
+        <h2 class="text-xl font-bold flex items-center">
+          <i class="fas fa-users text-blue-500 mr-2"></i>
+          All Users (<span id="usersCount">0</span>)
+        </h2>
+        <div class="flex space-x-2">
+          <input type="text" id="userSearch" placeholder="Search users..." class="border px-3 py-1 rounded">
+          <button id="refreshUsers" class="bg-blue-100 text-blue-500 p-2 rounded">
+            <i class="fas fa-sync-alt"></i>
+          </button>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full bg-white">
+          <thead>
+            <tr class="border-b">
+              <th class="py-2 px-4 text-left">ID</th>
+              <th class="py-2 px-4 text-left">Username</th>
+              <th class="py-2 px-4 text-left">Email</th>
+              <th class="py-2 px-4 text-left">Mobile</th>
+              <th class="py-2 px-4 text-left">Online</th>
+              <th class="py-2 px-4 text-left">Balance</th>
+              <th class="py-2 px-4 text-left">Deposits</th>
+              <th class="py-2 px-4 text-left">Withdrawals</th>
+              <th class="py-2 px-4 text-left">Invested</th>
+              <th class="py-2 px-4 text-left">Referrals</th>
+              <th class="py-2 px-4 text-left">Status</th>
+              <th class="py-2 px-4 text-left">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="usersTableBody">
+            <tr>
+              <td colspan="12" class="text-center py-4 text-gray-500">Loading users...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="flex justify-between items-center mt-4">
+        <div class="text-sm text-gray-500" id="usersPaginationInfo">
+          Showing 0 to 0 of 0 entries
+        </div>
+        <div class="flex space-x-2" id="usersPagination"></div>
+      </div>
+    </div>
+
+    <!-- Recent Transactions -->
+    <div class="bg-white p-4 rounded-xl shadow">
+      <h2 class="text-xl font-bold mb-3 flex items-center">
+        <i class="fas fa-exchange-alt text-purple-500 mr-2"></i>
+        Recent Transactions
+      </h2>
+      <div class="overflow-x-auto">
+        <table class="min-w-full bg-white">
+          <thead>
+            <tr class="border-b">
+              <th class="py-2 px-4 text-left">ID</th>
+              <th class="py-2 px-4 text-left">User</th>
+              <th class="py-2 px-4 text-left">Type</th>
+              <th class="py-2 px-4 text-left">Amount</th>
+              <th class="py-2 px-4 text-left">Method</th>
+              <th class="py-2 px-4 text-left">Status</th>
+              <th class="py-2 px-4 text-left">Date</th>
+              <th class="py-2 px-4 text-left">UTR</th>
+              <th class="py-2 px-4 text-left">Screenshot</th>
+            </tr>
+          </thead>
+          <tbody id="transactionsTableBody">
+            <tr>
+              <td colspan="9" class="text-center py-4 text-gray-500">Loading transactions...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail Modal -->
+  <div id="detailModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+    <div class="bg-white p-6 rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-xl font-bold">User Details</h3>
+        <button id="closeDetailModal" class="text-gray-500 hover:text-gray-700">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div id="detailContent" class="space-y-4"></div>
+    </div>
+  </div>
+
+  <script>
+    // Admin credentials
+    const ADMIN_USERNAME = "raju7634457@gmail.com";
+    const ADMIN_PASSWORD = "raju7634457@gmail.com";
+
+    // Realtime DB refs
+    let usersRef = null;
+    let presenceRef = null;
+    let depositsRef = null;
+    let withdrawalsRef = null;
+    let investmentsRef = null;
+    let transactionsRef = null;
+
+    // In-memory caches
+    let usersCache = {};
+    let presenceCache = {};
+    let depositsCache = {};
+    let withdrawalsCache = {};
+    let investmentsCache = {};
+    let transactionsCache = {};
+
+    const rdb = firebase.database();
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Admin login handler (hardcoded only)
+      document.getElementById('adminLoginButton').addEventListener('click', () => {
+        const username = document.getElementById('adminUsername').value;
+        const password = document.getElementById('adminPassword').value;
+        if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+          console.log("✅ Admin logged in successfully");
+          document.getElementById('adminLogin').classList.add('hidden');
+          document.getElementById('adminDashboard').classList.remove('hidden');
+          document.getElementById('adminLoginError').classList.add('hidden');
+          startRealtimeListeners();
+        } else {
+          console.error("❌ Login failed: Incorrect username or password");
+          document.getElementById('adminLoginError').classList.remove('hidden');
+        }
+      });
+
+      document.getElementById('adminLogoutButton').addEventListener('click', () => {
+        stopRealtimeListeners();
+        document.getElementById('adminDashboard').classList.add('hidden');
+        document.getElementById('adminLogin').classList.remove('hidden');
+        document.getElementById('adminPassword').value = '';
+        console.log("✅ Admin logged out");
+      });
+
+      document.getElementById('closeDetailModal').addEventListener('click', () => {
+        document.getElementById('detailModal').classList.add('hidden');
+      });
+
+      document.getElementById('userSearch').addEventListener('input', function(e) {
+        const term = e.target.value.toLowerCase();
+        document.querySelectorAll('#usersTableBody tr').forEach(row => {
+          const text = row.textContent.toLowerCase();
+          row.style.display = text.includes(term) ? '' : 'none';
+        });
+      });
+
+      document.getElementById('refreshUsers').addEventListener('click', () => {
+        console.log("🔄 Refreshing all data");
+        fetchOnceAndRenderAll();
+      });
+    });
+
+    function startRealtimeListeners() {
+      console.log("🚀 Starting realtime listeners...");
+      // Users
+      usersRef = rdb.ref('users');
+      usersRef.on('value', snap => {
+        usersCache = snap.val() || {};
+        console.log('📊 Users cache updated:', usersCache);
+        renderUsersTable();
+        renderSummaryCounts();
+      }, error => {
+        console.error("❌ Error fetching users:", error);
+      });
+
+      // Presence
+      presenceRef = rdb.ref('presence');
+      presenceRef.on('value', snap => {
+        presenceCache = snap.val() || {};
+        console.log('📊 Presence cache updated:', presenceCache);
+        renderPresenceSummary();
+        renderUsersTable();
+      }, error => {
+        console.error("❌ Error fetching presence:", error);
+      });
+
+      // Deposit Requests
+      depositsRef = rdb.ref('depositRequests');
+      depositsRef.on('value', snap => {
+        depositsCache = snap.val() || {};
+        console.log('📊 Deposits cache updated:', depositsCache);
+        renderPendingDeposits();
+        renderTransactionsTable();
+        renderSummaryCounts();
+      }, error => {
+        console.error("❌ Error fetching deposits:", error);
+      });
+
+      // Withdrawal Requests
+      withdrawalsRef = rdb.ref('withdrawalRequests');
+      withdrawalsRef.on('value', snap => {
+        withdrawalsCache = snap.val() || {};
+        console.log('📊 Withdrawals cache updated:', withdrawalsCache);
+        renderPendingWithdrawals();
+        renderTransactionsTable();
+        renderSummaryCounts();
+      }, error => {
+        console.error("❌ Error fetching withdrawals:", error);
+      });
+
+      // Investments
+      investmentsRef = rdb.ref('investments');
+      investmentsRef.on('value', snap => {
+        investmentsCache = snap.val() || {};
+        console.log('📊 Investments cache updated:', investmentsCache);
+        renderSummaryCounts();
+      }, error => {
+        console.error("❌ Error fetching investments:", error);
+      });
+
+      // Transactions
+      transactionsRef = rdb.ref('userTransactions');
+      transactionsRef.on('value', snap => {
+        transactionsCache = snap.val() || {};
+        console.log('📊 Transactions cache updated:', transactionsCache);
+        renderTransactionsTable();
+      }, error => {
+        console.error("❌ Error fetching transactions:", error);
+      });
+
+      // Initial fetch
+      fetchOnceAndRenderAll();
+    }
+
+    function stopRealtimeListeners() {
+      console.log("🛑 Stopping realtime listeners...");
+      if (usersRef) usersRef.off();
+      if (presenceRef) presenceRef.off();
+      if (depositsRef) depositsRef.off();
+      if (withdrawalsRef) withdrawalsRef.off();
+      if (investmentsRef) investmentsRef.off();
+      if (transactionsRef) transactionsRef.off();
+      usersCache = {};
+      presenceCache = {};
+      depositsCache = {};
+      withdrawalsCache = {};
+      investmentsCache = {};
+      transactionsCache = {};
+      document.getElementById('usersTableBody').innerHTML = '<tr><td colspan="12" class="text-center py-4 text-gray-500">Realtime stopped.</td></tr>';
+      document.getElementById('pendingDepositsList').innerHTML = '<p class="text-gray-500 text-center py-4">Realtime stopped.</p>';
+      document.getElementById('pendingWithdrawalsList').innerHTML = '<p class="text-gray-500 text-center py-4">Realtime stopped.</p>';
+      document.getElementById('transactionsTableBody').innerHTML = '<tr><td colspan="9" class="text-center py-4 text-gray-500">Realtime stopped.</td></tr>';
+      document.getElementById('totalUsers').textContent = '0';
+      document.getElementById('usersCount').textContent = '0';
+      document.getElementById('onlineCount').textContent = '0';
+      document.getElementById('totalDeposits').textContent = '₹0';
+      document.getElementById('totalWithdrawals').textContent = '₹0';
+      document.getElementById('totalInvestments').textContent = '₹0';
+      document.getElementById('pendingDepositsCount').textContent = '0';
+      document.getElementById('pendingWithdrawalsCount').textContent = '0';
+    }
+
+    function fetchOnceAndRenderAll() {
+      console.log("🔄 Fetching all data once...");
+      rdb.ref('users').once('value').then(s => {
+        usersCache = s.val() || {};
+        console.log('📊 Users Cache:', usersCache);
+        renderUsersTable();
+        renderSummaryCounts();
+      }).catch(e => console.error("❌ Error fetching users once:", e));
+      rdb.ref('presence').once('value').then(s => {
+        presenceCache = s.val() || {};
+        console.log('📊 Presence Cache:', presenceCache);
+        renderPresenceSummary();
+        renderUsersTable();
+      }).catch(e => console.error("❌ Error fetching presence once:", e));
+      rdb.ref('depositRequests').once('value').then(s => {
+        depositsCache = s.val() || {};
+        console.log('📊 Deposits Cache:', depositsCache);
+        renderPendingDeposits();
+        renderTransactionsTable();
+        renderSummaryCounts();
+      }).catch(e => console.error("❌ Error fetching deposits once:", e));
+      rdb.ref('withdrawalRequests').once('value').then(s => {
+        withdrawalsCache = s.val() || {};
+        console.log('📊 Withdrawals Cache:', withdrawalsCache);
+        renderPendingWithdrawals();
+        renderTransactionsTable();
+        renderSummaryCounts();
+      }).catch(e => console.error("❌ Error fetching withdrawals once:", e));
+      rdb.ref('investments').once('value').then(s => {
+        investmentsCache = s.val() || {};
+        console.log('📊 Investments Cache:', investmentsCache);
+        renderSummaryCounts();
+      }).catch(e => console.error("❌ Error fetching investments once:", e));
+      rdb.ref('userTransactions').once('value').then(s => {
+        transactionsCache = s.val() || {};
+        console.log('📊 Transactions Cache:', transactionsCache);
+        renderTransactionsTable();
+      }).catch(e => console.error("❌ Error fetching transactions once:", e));
+    }
+
+    function renderSummaryCounts() {
+      const usersArr = Object.keys(usersCache).map(k => ({ id: k, ...usersCache[k] }));
+      document.getElementById('totalUsers').textContent = usersArr.length;
+      document.getElementById('usersCount').textContent = usersArr.length;
+
+      const depositsArr = Object.keys(depositsCache).map(k => ({ id: k, ...depositsCache[k] }));
+      const totalDeposits = depositsArr.filter(d => d.status === 'approved').reduce((a, d) => a + Number(d.amount || 0), 0);
+      document.getElementById('totalDeposits').textContent = `₹${totalDeposits.toLocaleString('en-IN')}`;
+
+      const wArr = Object.keys(withdrawalsCache).map(k => ({ id: k, ...withdrawalsCache[k] }));
+      const totalWithdrawals = wArr.filter(w => w.status === 'approved').reduce((a, w) => a + Number(w.amount || 0), 0);
+      document.getElementById('totalWithdrawals').textContent = `₹${totalWithdrawals.toLocaleString('en-IN')}`;
+
+      const invArr = Object.keys(investmentsCache).map(k => ({ id: k, ...investmentsCache[k] }));
+      const totalInvested = invArr.reduce((a, i) => a + Number(i.amount || 0), 0);
+      document.getElementById('totalInvestments').textContent = `₹${totalInvested.toLocaleString('en-IN')}`;
+    }
+
+    function renderPresenceSummary() {
+      const pres = presenceCache || {};
+      let online = 0;
+      Object.keys(pres).forEach(k => {
+        if (pres[k] && pres[k].online) online++;
+      });
+      document.getElementById('onlineCount').textContent = online;
+    }
+
+    function renderUsersTable() {
+      const tbody = document.getElementById('usersTableBody');
+      tbody.innerHTML = '';
+      const usersArr = Object.keys(usersCache).map(k => ({ id: k, ...usersCache[k] }));
+      usersArr.sort((a, b) => (a.username || '').localeCompare(b.username || ''));
+
+      if (usersArr.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="12" class="text-center py-4 text-gray-500">No users found.</td></tr>';
+        document.getElementById('usersPaginationInfo').textContent = 'Showing 0 to 0 of 0 entries';
+        return;
+      }
+
+      usersArr.forEach(user => {
+        const pres = presenceCache[user.id] || {};
+        const isOnline = !!pres.online;
+        const lastSeenTs = pres.lastSeen || user.lastSeen || user.lastLogin || null;
+        const lastSeenDisplay = lastSeenTs ? new Date(lastSeenTs).toLocaleString() : '-';
+
+        const row = document.createElement('tr');
+        row.className = 'border-b hover:bg-gray-50';
+        row.innerHTML = `
+          <td class="py-3 px-4 text-xs">${escapeHtml(user.id)}</td>
+          <td class="py-3 px-4 font-medium">${escapeHtml(user.username || 'N/A')}</td>
+          <td class="py-3 px-4">${escapeHtml(user.email || 'N/A')}</td>
+          <td class="py-3 px-4">${escapeHtml(user.mobile || 'N/A')}</td>
+          <td class="py-3 px-4">
+            <span class="px-2 py-1 rounded-full text-xs ${isOnline ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
+              ${isOnline ? 'Online' : 'Offline'}
+            </span>
+            <div class="text-xs text-gray-500 mt-1">${escapeHtml(String(lastSeenDisplay))}</div>
+          </td>
+          <td class="py-3 px-4"><span class="font-bold text-green-600">₹${escapeHtml(String(user.balance || 0))}</span></td>
+          <td class="py-3 px-4"><span class="font-bold text-green-600">₹${escapeHtml(String(user.deposits || 0))}</span></td>
+          <td class="py-3 px-4"><span class="font-bold text-green-600">₹${escapeHtml(String(user.withdrawals || 0))}</span></td>
+          <td class="py-3 px-4"><span class="font-bold text-green-600">₹${escapeHtml(String(user.invested || 0))}</span></td>
+          <td class="py-3 px-4">${escapeHtml(String(user.referralsCount || 0))}</td>
+          <td class="py-3 px-4">
+            <span class="px-2 py-1 rounded-full text-xs ${user.status === 'active' ? 'bg-green-100 text-green-800' : user.status === 'suspended' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}">
+              ${escapeHtml(user.status || 'active')}
+            </span>
+          </td>
+          <td class="py-3 px-4">
+            <button class="text-blue-500 hover:text-blue-700 view-user" data-id="${escapeHtml(user.id)}">
+              <i class="fas fa-eye"></i>
+            </button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      document.querySelectorAll('.view-user').forEach(btn => {
+        btn.onclick = async function() {
+          const uid = this.dataset.id;
+          const snap = await rdb.ref('users/' + uid).once('value');
+          const su = snap.val() || {};
+          document.getElementById('detailContent').innerHTML = `
+            <p><strong>Username:</strong> ${escapeHtml(su.username || 'N/A')}</p>
+            <p><strong>Email:</strong> ${escapeHtml(su.email || 'N/A')}</p>
+            <p><strong>Mobile:</strong> ${escapeHtml(su.mobile || 'N/A')}</p>
+            <p><strong>Balance:</strong> <span class="font-bold text-green-600">₹${escapeHtml(String(su.balance || 0))}</span></p>
+            <p><strong>Deposits:</strong> <span class="font-bold text-green-600">₹${escapeHtml(String(su.deposits || 0))}</span></p>
+            <p><strong>Withdrawals:</strong> <span class="font-bold text-green-600">₹${escapeHtml(String(su.withdrawals || 0))}</span></p>
+            <p><strong>Invested:</strong> <span class="font-bold text-green-600">₹${escapeHtml(String(su.invested || 0))}</span></p>
+            <p><strong>Referral Earnings:</strong> <span class="font-bold text-green-600">₹${escapeHtml(String(su.referralEarnings || 0))}</span></p>
+            <p><strong>Referrals Count:</strong> ${escapeHtml(String(su.referralsCount || 0))}</p>
+            <p><strong>Has Deposited:</strong> ${su.hasDeposited ? 'Yes' : 'No'}</p>
+            <p><strong>Referred By:</strong> ${escapeHtml(su.referralBy || 'N/A')}</p>
+            <p><strong>Last Activity:</strong> ${escapeHtml(su.lastActivity || 'N/A')}</p>
+            <p><strong>Last Seen:</strong> ${su.lastSeen ? new Date(su.lastSeen).toLocaleString() : 'N/A'}</p>
+          `;
+          document.getElementById('detailModal').classList.remove('hidden');
+        };
+      });
+
+      document.getElementById('usersPaginationInfo').textContent = `Showing 1 to ${usersArr.length} of ${usersArr.length} entries`;
+    }
+
+    function renderPendingDeposits() {
+      const listEl = document.getElementById('pendingDepositsList');
+      const all = Object.keys(depositsCache).map(k => ({ id: k, ...depositsCache[k] }));
+      const pending = all.filter(d => d.status === 'pending');
+      document.getElementById('pendingDepositsCount').textContent = pending.length;
+      listEl.innerHTML = '';
+      if (pending.length === 0) {
+        listEl.innerHTML = '<p class="text-gray-500 text-center py-4">No pending deposits</p>';
+        return;
+      }
+      pending.forEach(d => {
+        const div = document.createElement('div');
+        div.className = 'flex items-center justify-between bg-yellow-50 rounded p-3';
+        div.innerHTML = `
+          <div>
+            <div class="font-bold text-yellow-700"><span class="font-bold text-green-600">₹${escapeHtml(String(d.amount || 0))}</span> (${escapeHtml(d.username || 'N/A')})</div>
+            <div class="text-xs text-gray-600">Date: ${escapeHtml(d.date || 'N/A')} <br>UTR: <span class="font-mono">${escapeHtml(d.utrNumber || 'N/A')}</span></div>
+            <div class="text-xs text-gray-600 mt-1">Screenshot: ${d.proofUrl ? `<a href="${escapeHtml(d.proofUrl)}" target="_blank" class="underline text-blue-700">View</a>` : 'N/A'}</div>
+          </div>
+          <div class="flex flex-col gap-2">
+            <button class="bg-green-500 text-white px-2 py-1 rounded approve-deposit" data-id="${escapeHtml(d.id)}">Approve</button>
+            <button class="bg-red-500 text-white px-2 py-1 rounded reject-deposit" data-id="${escapeHtml(d.id)}">Reject</button>
+          </div>
+        `;
+        listEl.appendChild(div);
+      });
+
+      listEl.querySelectorAll('.approve-deposit').forEach(btn => {
+        btn.onclick = async function() {
+          const id = this.dataset.id;
+          await rdb.ref('depositRequests/' + id + '/status').set('approved');
+          const depSnap = await rdb.ref('depositRequests/' + id).once('value');
+          const dep = depSnap.val();
+          if (!dep) return;
+          const userRef = rdb.ref('users/' + dep.userId);
+          await userRef.transaction(curr => {
+            if (!curr) return curr;
+            curr.balance = (curr.balance || 0) + Number(dep.amount || 0);
+            curr.deposits = (curr.deposits || 0) + Number(dep.amount || 0);
+            if (!curr.hasDeposited) curr.hasDeposited = true;
+            return curr;
+          });
+          const txRef = rdb.ref('userTransactions/' + dep.userId);
+          txRef.orderByChild('requestId').equalTo(id).once('value').then(snap => {
+            const txs = snap.val() || {};
+            Object.keys(txs).forEach(k => {
+              rdb.ref('userTransactions/' + dep.userId + '/' + k + '/status').set('approved');
+            });
+          });
+          rdb.ref('users/' + dep.userId + '/referralBy').once('value').then(snap => {
+            const refBy = snap.val();
+            if (refBy) {
+              rdb.ref('users').orderByChild('username').equalTo(refBy).once('value').then(rsnap => {
+                if (rsnap.exists()) {
+                  const refId = Object.keys(rsnap.val())[0];
+                  const commission = parseFloat(((Number(dep.amount || 0) * 0.4)).toFixed(2));
+                  rdb.ref('users/' + refId + '/referralEarnings').transaction(v => (v || 0) + commission);
+                  rdb.ref('userTransactions/' + refId).push({
+                    type: 'referral_commission',
+                    amount: commission,
+                    description: `40% commission from deposit by ${dep.username}`,
+                    date: new Date().toLocaleDateString(),
+                    status: 'completed'
+                  });
+                }
+              });
+            }
+          });
+        };
+      });
+
+      listEl.querySelectorAll('.reject-deposit').forEach(btn => {
+        btn.onclick = async function() {
+          const id = this.dataset.id;
+          await rdb.ref('depositRequests/' + id + '/status').set('rejected');
+          const depSnap = await rdb.ref('depositRequests/' + id).once('value');
+          const dep = depSnap.val();
+          if (!dep) return;
+          const txRef = rdb.ref('userTransactions/' + dep.userId);
+          txRef.orderByChild('requestId').equalTo(id).once('value').then(snap => {
+            const txs = snap.val() || {};
+            Object.keys(txs).forEach(k => {
+              rdb.ref('userTransactions/' + dep.userId + '/' + k + '/status').set('rejected');
+            });
+          });
+        };
+      });
+    }
+
+    function renderPendingWithdrawals() {
+      const listEl = document.getElementById('pendingWithdrawalsList');
+      const all = Object.keys(withdrawalsCache).map(k => ({ id: k, ...withdrawalsCache[k] }));
+      const pending = all.filter(w => w.status === 'pending');
+      document.getElementById('pendingWithdrawalsCount').textContent = pending.length;
+      listEl.innerHTML = '';
+      if (pending.length === 0) {
+        listEl.innerHTML = '<p class="text-gray-500 text-center py-4">No pending withdrawals</p>';
+        return;
+      }
+      pending.forEach(w => {
+        const div = document.createElement('div');
+        div.className = 'flex items-center justify-between bg-yellow-50 rounded p-3';
+        div.innerHTML = `
+          <div>
+            <div class="font-bold text-yellow-700"><span class="font-bold text-green-600">₹${escapeHtml(String(w.amount || 0))}</span> (${escapeHtml(w.username || 'N/A')})</div>
+            <div class="text-xs text-gray-600">${escapeHtml(w.date || 'N/A')}</div>
+            <div class="text-xs text-gray-600">${w.method === 'bank' ? `A/C: ${escapeHtml(w.accountNumber || 'N/A')}, IFSC: ${escapeHtml(w.ifscCode || 'N/A')}, Name: ${escapeHtml(w.accountName || 'N/A')}` : `UPI: ${escapeHtml(w.upiId || 'N/A')}`}</div>
+          </div>
+          <div class="flex flex-col gap-2">
+            <button class="bg-green-500 text-white px-2 py-1 rounded approve-withdrawal" data-id="${escapeHtml(w.id)}">Approve</button>
+            <button class="bg-red-500 text-white px-2 py-1 rounded reject-withdrawal" data-id="${escapeHtml(w.id)}">Reject</button>
+          </div>
+        `;
+        listEl.appendChild(div);
+      });
+
+      listEl.querySelectorAll('.approve-withdrawal').forEach(btn => {
+        btn.onclick = async function() {
+          const id = this.dataset.id;
+          await rdb.ref('withdrawalRequests/' + id + '/status').set('approved');
+          const wdSnap = await rdb.ref('withdrawalRequests/' + id).once('value');
+          const wd = wdSnap.val();
+          if (!wd) return;
+          await rdb.ref('users/' + wd.userId).transaction(curr => {
+            if (!curr) return curr;
+            curr.balance = (curr.balance || 0) - Number(wd.amount || 0);
+            curr.withdrawals = (curr.withdrawals || 0) + Number(wd.amount || 0);
+            return curr;
+          });
+          const txRef = rdb.ref('userTransactions/' + wd.userId);
+          txRef.orderByChild('requestId').equalTo(id).once('value').then(snap => {
+            const txs = snap.val() || {};
+            Object.keys(txs).forEach(k => rdb.ref('userTransactions/' + wd.userId + '/' + k + '/status').set('approved'));
+          });
+        };
+      });
+
+      listEl.querySelectorAll('.reject-withdrawal').forEach(btn => {
+        btn.onclick = async function() {
+          const id = this.dataset.id;
+          await rdb.ref('withdrawalRequests/' + id + '/status').set('rejected');
+          const wdSnap = await rdb.ref('withdrawalRequests/' + id).once('value');
+          const wd = wdSnap.val();
+          if (!wd) return;
+          const txRef = rdb.ref('userTransactions/' + wd.userId);
+          txRef.orderByChild('requestId').equalTo(id).once('value').then(snap => {
+            const txs = snap.val() || {};
+            Object.keys(txs).forEach(k => rdb.ref('userTransactions/' + wd.userId + '/' + k + '/status').set('rejected'));
+          });
+        };
+      });
+    }
+
+    function renderTransactionsTable() {
+      const tbody = document.getElementById('transactionsTableBody');
+      tbody.innerHTML = '';
+      const allDeposits = Object.keys(depositsCache).map(k => ({ id: k, ...depositsCache[k], type: 'deposit' }));
+      const allWithdrawals = Object.keys(withdrawalsCache).map(k => ({ id: k, ...withdrawalsCache[k], type: 'withdrawal' }));
+      const allTxs = [...allDeposits, ...allWithdrawals];
+      allTxs.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+      const recentTxs = allTxs.slice(0, 20);
+
+      if (recentTxs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-gray-500">No transactions found.</td></tr>';
+        return;
+      }
+
+      recentTxs.forEach(tx => {
+        const isApproved = tx.status === 'approved';
+        const isRejected = tx.status === 'rejected';
+        const amountClass = isApproved ? 'font-bold text-green-600' : isRejected ? 'font-bold text-red-600' : 'font-bold text-yellow-600';
+        
+        const row = document.createElement('tr');
+        row.className = 'border-b hover:bg-gray-50';
+        row.innerHTML = `
+          <td class="py-3 px-4 text-xs">${escapeHtml(tx.id)}</td>
+          <td class="py-3 px-4">${escapeHtml(tx.username || 'N/A')}</td>
+          <td class="py-3 px-4">
+            <span class="px-2 py-1 rounded-full text-xs ${tx.type === 'deposit' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'}">
+              ${escapeHtml(tx.type)}
+            </span>
+          </td>
+          <td class="py-3 px-4"><span class="${amountClass}">₹${escapeHtml(String(tx.amount || 0))}</span></td>
+          <td class="py-3 px-4">${escapeHtml(tx.method || 'N/A')}</td>
+          <td class="py-3 px-4">
+            <span class="px-2 py-1 rounded-full text-xs ${isApproved ? 'bg-green-100 text-green-800' : isRejected ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}">
+              ${escapeHtml(tx.status || 'pending')}
+            </span>
+          </td>
+          <td class="py-3 px-4">${escapeHtml(tx.date || 'N/A')}</td>
+          <td class="py-3 px-4">${escapeHtml(tx.utrNumber || 'N/A')}</td>
+          <td class="py-3 px-4">${tx.proofUrl ? `<a href="${escapeHtml(tx.proofUrl)}" target="_blank" class="underline text-blue-700">View</a>` : 'N/A'}</td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    function escapeHtml(unsafe) {
+      if (unsafe === null || unsafe === undefined) return '';
+      return String(unsafe)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+  </script>
+</body>
+</html>
