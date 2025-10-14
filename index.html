@@ -573,13 +573,12 @@ const firebaseConfig = {
           const dep = depSnap.val();
           if (!dep) return;
           const userRef = rdb.ref('users/' + dep.userId);
-          await userRef.transaction(curr => {
-            if (!curr) return curr;
-            curr.balance = (curr.balance || 0) + Number(dep.amount || 0);
-            curr.deposits = (curr.deposits || 0) + Number(dep.amount || 0);
-            if (!curr.hasDeposited) curr.hasDeposited = true;
-            return curr;
-          });
+// ✅ FIXED: Use update() instead of transaction()
+await userRef.update({
+  balance: firebase.database.ServerValue.increment(Number(dep.amount || 0)),
+  deposits: firebase.database.ServerValue.increment(Number(dep.amount || 0)),
+  hasDeposited: true
+});
           const txRef = rdb.ref('userTransactions/' + dep.userId);
           txRef.orderByChild('requestId').equalTo(id).once('value').then(snap => {
             const txs = snap.val() || {};
@@ -661,12 +660,11 @@ const firebaseConfig = {
           const wdSnap = await rdb.ref('withdrawalRequests/' + id).once('value');
           const wd = wdSnap.val();
           if (!wd) return;
-          await rdb.ref('users/' + wd.userId).transaction(curr => {
-            if (!curr) return curr;
-            curr.balance = (curr.balance || 0) - Number(wd.amount || 0);
-            curr.withdrawals = (curr.withdrawals || 0) + Number(wd.amount || 0);
-            return curr;
-          });
+// ✅ FIXED: Use update() instead of transaction()
+await rdb.ref('users/' + wd.userId).update({
+  balance: firebase.database.ServerValue.increment(-Number(wd.amount || 0)),
+  withdrawals: firebase.database.ServerValue.increment(Number(wd.amount || 0))
+});
           const txRef = rdb.ref('userTransactions/' + wd.userId);
           txRef.orderByChild('requestId').equalTo(id).once('value').then(snap => {
             const txs = snap.val() || {};
