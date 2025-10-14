@@ -251,6 +251,18 @@ const firebaseConfig = {
 
     const rdb = firebase.database();
 
+    // Toast notification function
+    function showToast(message) {
+      const toast = document.getElementById('notificationToast');
+      const messageEl = document.getElementById('notificationMessage');
+      messageEl.textContent = message;
+      toast.classList.remove('hidden');
+      
+      setTimeout(() => {
+        toast.classList.add('hidden');
+      }, 3000);
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       // Admin login handler (hardcoded only)
       document.getElementById('adminLoginButton').addEventListener('click', () => {
@@ -278,6 +290,11 @@ const firebaseConfig = {
 
       document.getElementById('closeDetailModal').addEventListener('click', () => {
         document.getElementById('detailModal').classList.add('hidden');
+      });
+
+      // Close toast button
+      document.getElementById('closeNotification').addEventListener('click', () => {
+        document.getElementById('notificationToast').classList.add('hidden');
       });
 
       document.getElementById('userSearch').addEventListener('input', function(e) {
@@ -565,48 +582,63 @@ const firebaseConfig = {
         listEl.appendChild(div);
       });
 
-      listEl.querySelectorAll('.approve-deposit').forEach(btn => {
-        btn.onclick = async function() {
-          const id = this.dataset.id;
-          await rdb.ref('depositRequests/' + id + '/status').set('approved');
-          const depSnap = await rdb.ref('depositRequests/' + id).once('value');
-          const dep = depSnap.val();
-          if (!dep) return;
-          const userRef = rdb.ref('users/' + dep.userId);
-// ✅ FIXED: Use update() instead of transaction()
-await userRef.update({
-  balance: firebase.database.ServerValue.increment(Number(dep.amount || 0)),
-  deposits: firebase.database.ServerValue.increment(Number(dep.amount || 0)),
-  hasDeposited: true
-});
-          const txRef = rdb.ref('userTransactions/' + dep.userId);
-          txRef.orderByChild('requestId').equalTo(id).once('value').then(snap => {
-            const txs = snap.val() || {};
-            Object.keys(txs).forEach(k => {
-              rdb.ref('userTransactions/' + dep.userId + '/' + k + '/status').set('approved');
-            });
-          });
-          rdb.ref('users/' + dep.userId + '/referralBy').once('value').then(snap => {
-            const refBy = snap.val();
-            if (refBy) {
-              rdb.ref('users').orderByChild('username').equalTo(refBy).once('value').then(rsnap => {
-                if (rsnap.exists()) {
-                  const refId = Object.keys(rsnap.val())[0];
-                  const commission = parseFloat(((Number(dep.amount || 0) * 0.4)).toFixed(2));
-                  rdb.ref('users/' + refId + '/referralEarnings').transaction(v => (v || 0) + commission);
-                  rdb.ref('userTransactions/' + refId).push({
-                    type: 'referral_commission',
-                    amount: commission,
-                    description: `40% commission from deposit by ${dep.username}`,
-                    date: new Date().toLocaleDateString(),
-                    status: 'completed'
-                  });
-                }
-              });
-            }
-          });
-        };
+listEl.querySelectorAll('.approve-deposit').forEach(btn => {
+  btn.onclick = async function() {
+    const id = this.dataset.id;
+    
+    // ✅ PEHLE check karo ki already processed toh nahi hai
+    const depSnap = await rdb.ref('depositRequests/' + id).once('value');
+    const dep = depSnap.val();
+    if (!dep || dep.processed) return;
+    
+    // ✅ PEHLE status update karo
+    await rdb.ref('depositRequests/' + id).update({
+      status: 'approved',
+      processed: true, // ✅ IMPORTANT: Processed flag add karo
+      approvedAt: Date.now()
+    });
+    
+    // ✅ SIRF EK BAAR amount add karo
+    const userRef = rdb.ref('users/' + dep.userId);
+    await userRef.update({
+      balance: firebase.database.ServerValue.increment(Number(dep.amount || 0)),
+      deposits: firebase.database.ServerValue.increment(Number(dep.amount || 0)),
+      hasDeposited: true
+    });
+    
+    // Transaction status update
+    const txRef = rdb.ref('userTransactions/' + dep.userId);
+    txRef.orderByChild('requestId').equalTo(id).once('value').then(snap => {
+      const txs = snap.val() || {};
+      Object.keys(txs).forEach(k => {
+        rdb.ref('userTransactions/' + dep.userId + '/' + k + '/status').set('approved');
       });
+    });
+    
+    // Referral commission logic...
+    rdb.ref('users/' + dep.userId + '/referralBy').once('value').then(snap => {
+      const refBy = snap.val();
+      if (refBy) {
+        rdb.ref('users').orderByChild('username').equalTo(refBy).once('value').then(rsnap => {
+          if (rsnap.exists()) {
+            const refId = Object.keys(rsnap.val())[0];
+            const commission = parseFloat(((Number(dep.amount || 0) * 0.4)).toFixed(2));
+            rdb.ref('users/' + refId + '/referralEarnings').transaction(v => (v || 0) + commission);
+            rdb.ref('userTransactions/' + refId).push({
+              type: 'referral_commission',
+              amount: commission,
+              description: `40% commission from deposit by ${dep.username}`,
+              date: new Date().toLocaleDateString(),
+              status: 'completed'
+            });
+          }
+        });
+      }
+    });
+    
+    showToast("Deposit approved successfully!");
+  };
+});
 
       listEl.querySelectorAll('.reject-deposit').forEach(btn => {
         btn.onclick = async function() {
@@ -653,38 +685,31 @@ await userRef.update({
         listEl.appendChild(div);
       });
 
+      // Admin panel - withdrawal approval (NO BALANCE CHANGE)
       listEl.querySelectorAll('.approve-withdrawal').forEach(btn => {
         btn.onclick = async function() {
           const id = this.dataset.id;
-          await rdb.ref('withdrawalRequests/' + id + '/status').set('approved');
-          const wdSnap = await rdb.ref('withdrawalRequests/' + id).once('value');
-          const wd = wdSnap.val();
-          if (!wd) return;
-// ✅ FIXED: Use update() instead of transaction()
-await rdb.ref('users/' + wd.userId).update({
-  balance: firebase.database.ServerValue.increment(-Number(wd.amount || 0)),
-  withdrawals: firebase.database.ServerValue.increment(Number(wd.amount || 0))
-});
-          const txRef = rdb.ref('userTransactions/' + wd.userId);
-          txRef.orderByChild('requestId').equalTo(id).once('value').then(snap => {
-            const txs = snap.val() || {};
-            Object.keys(txs).forEach(k => rdb.ref('userTransactions/' + wd.userId + '/' + k + '/status').set('approved'));
+          
+          // ✅ ONLY status update - balance change user side listener handle karega
+          await rdb.ref('withdrawalRequests/' + id).update({
+            status: 'approved'
           });
+          
+          showToast("Withdrawal approved successfully!");
         };
       });
 
+      // Admin panel - withdrawal rejection (NO BALANCE CHANGE)
       listEl.querySelectorAll('.reject-withdrawal').forEach(btn => {
         btn.onclick = async function() {
           const id = this.dataset.id;
-          await rdb.ref('withdrawalRequests/' + id + '/status').set('rejected');
-          const wdSnap = await rdb.ref('withdrawalRequests/' + id).once('value');
-          const wd = wdSnap.val();
-          if (!wd) return;
-          const txRef = rdb.ref('userTransactions/' + wd.userId);
-          txRef.orderByChild('requestId').equalTo(id).once('value').then(snap => {
-            const txs = snap.val() || {};
-            Object.keys(txs).forEach(k => rdb.ref('userTransactions/' + wd.userId + '/' + k + '/status').set('rejected'));
+          
+          // ✅ ONLY status update - refund user side listener handle karega
+          await rdb.ref('withdrawalRequests/' + id).update({
+            status: 'rejected'
           });
+          
+          showToast("Withdrawal rejected!");
         };
       });
     }
