@@ -555,32 +555,32 @@ const firebaseConfig = {
       document.getElementById('usersPaginationInfo').textContent = `Showing 1 to ${usersArr.length} of ${usersArr.length} entries`;
     }
 
-    function renderPendingDeposits() {
-      const listEl = document.getElementById('pendingDepositsList');
-      const all = Object.keys(depositsCache).map(k => ({ id: k, ...depositsCache[k] }));
-      const pending = all.filter(d => d.status === 'pending');
-      document.getElementById('pendingDepositsCount').textContent = pending.length;
-      listEl.innerHTML = '';
-      if (pending.length === 0) {
-        listEl.innerHTML = '<p class="text-gray-500 text-center py-4">No pending deposits</p>';
-        return;
-      }
-      pending.forEach(d => {
-        const div = document.createElement('div');
-        div.className = 'flex items-center justify-between bg-yellow-50 rounded p-3';
-        div.innerHTML = `
-          <div>
-            <div class="font-bold text-yellow-700"><span class="font-bold text-green-600">₹${escapeHtml(String(d.amount || 0))}</span> (${escapeHtml(d.username || 'N/A')})</div>
-            <div class="text-xs text-gray-600">Date: ${escapeHtml(d.date || 'N/A')} <br>UTR: <span class="font-mono">${escapeHtml(d.utrNumber || 'N/A')}</span></div>
-            <div class="text-xs text-gray-600 mt-1">Screenshot: ${d.proofUrl ? `<a href="${escapeHtml(d.proofUrl)}" target="_blank" class="underline text-blue-700">View</a>` : 'N/A'}</div>
-          </div>
-          <div class="flex flex-col gap-2">
-            <button class="bg-green-500 text-white px-2 py-1 rounded approve-deposit" data-id="${escapeHtml(d.id)}">Approve</button>
-            <button class="bg-red-500 text-white px-2 py-1 rounded reject-deposit" data-id="${escapeHtml(d.id)}">Reject</button>
-          </div>
-        `;
-        listEl.appendChild(div);
-      });
+function renderPendingDeposits() {
+  const listEl = document.getElementById('pendingDepositsList');
+  const all = Object.keys(depositsCache).map(k => ({ id: k, ...depositsCache[k] }));
+  const pending = all.filter(d => d.status === 'pending');
+  document.getElementById('pendingDepositsCount').textContent = pending.length;
+  listEl.innerHTML = '';
+  if (pending.length === 0) {
+    listEl.innerHTML = '<p class="text-gray-500 text-center py-4">No pending deposits</p>';
+    return;
+  }
+  pending.forEach(d => {
+    const div = document.createElement('div');
+    div.className = 'flex items-center justify-between bg-yellow-50 rounded p-3';
+    div.innerHTML = `
+      <div>
+        <div class="font-bold text-yellow-700"><span class="font-bold text-green-600">₹${escapeHtml(String(d.amount || 0))}</span> (${escapeHtml(d.username || 'N/A')})</div>
+        <div class="text-xs text-gray-600">Date: ${escapeHtml(d.date || 'N/A')} <br>UTR: <span class="font-mono">${escapeHtml(d.utr || 'N/A')}</span></div>  <!-- FIXED: Changed utrNumber to utr -->
+        <div class="text-xs text-gray-600 mt-1">Screenshot: ${d.proofUrl ? `<a href="${escapeHtml(d.proofUrl)}" target="_blank" class="underline text-blue-700">View</a>` : 'N/A'}</div>
+      </div>
+      <div class="flex flex-col gap-2">
+        <button class="bg-green-500 text-white px-2 py-1 rounded approve-deposit" data-id="${escapeHtml(d.id)}">Approve</button>
+        <button class="bg-red-500 text-white px-2 py-1 rounded reject-deposit" data-id="${escapeHtml(d.id)}">Reject</button>
+      </div>
+    `;
+    listEl.appendChild(div);
+  });
 
 listEl.querySelectorAll('.approve-deposit').forEach(btn => {
   btn.onclick = async function() {
@@ -714,7 +714,7 @@ listEl.querySelectorAll('.approve-deposit').forEach(btn => {
       });
     }
 
-    function renderTransactionsTable() {
+function renderTransactionsTable() {
       const tbody = document.getElementById('transactionsTableBody');
       tbody.innerHTML = '';
       const allDeposits = Object.keys(depositsCache).map(k => ({ id: k, ...depositsCache[k], type: 'deposit' }));
@@ -751,7 +751,7 @@ listEl.querySelectorAll('.approve-deposit').forEach(btn => {
             </span>
           </td>
           <td class="py-3 px-4">${escapeHtml(tx.date || 'N/A')}</td>
-          <td class="py-3 px-4">${escapeHtml(tx.utrNumber || 'N/A')}</td>
+          <td class="py-3 px-4">${escapeHtml(tx.utr || 'N/A')}</td>  <!-- ✅ FIX: Changed utrNumber to utr for consistency -->
           <td class="py-3 px-4">${tx.proofUrl ? `<a href="${escapeHtml(tx.proofUrl)}" target="_blank" class="underline text-blue-700">View</a>` : 'N/A'}</td>
         `;
         tbody.appendChild(row);
