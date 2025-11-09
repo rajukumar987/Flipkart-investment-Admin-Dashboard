@@ -13,15 +13,16 @@
 
   <script>
 const firebaseConfig = {
-  apiKey: "AIzaSyDPA2JTr8dt-rd0EefcmuevLhIs69rq6Z4",
-  authDomain: "flipkart-investment.firebaseapp.com",
-  databaseURL: "https://flipkart-investment-default-rtdb.firebaseio.com",
-  projectId: "flipkart-investment",
-  storageBucket: "flipkart-investment.firebasestorage.app",
-  messagingSenderId: "683911994891",
-  appId: "1:683911994891:web:553714a2b618b24163f10e",
-  measurementId: "G-5Z522FKDFS"
+  apiKey: "AIzaSyDVvshR12hodQgQsze9WyGbaDYWAKSm5wY",
+  authDomain: "flipkart-earn.firebaseapp.com",
+  databaseURL: "https://flipkart-earn-default-rtdb.firebaseio.com",
+  projectId: "flipkart-earn",
+  storageBucket: "flipkart-earn.firebasestorage.app",
+  messagingSenderId: "162327078909",
+  appId: "1:162327078909:web:c572c5180b71a5f83d1b94",
+  measurementId: "G-C4EKH4CQBQ"
 };
+
     firebase.initializeApp(firebaseConfig);
   </script>
 </head>
@@ -228,10 +229,54 @@ const firebaseConfig = {
     </div>
   </div>
 
+  <!-- Account Actions Modal -->
+  <div id="accountActionsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+    <div class="bg-white p-6 rounded-xl w-full max-w-md">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-xl font-bold" id="accountActionsTitle">User Account Actions</h3>
+        <button id="closeAccountActionsModal" class="text-gray-500 hover:text-gray-700">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div id="accountActionsContent" class="space-y-4">
+        <div class="bg-yellow-50 border border-yellow-200 p-4 rounded">
+          <p class="text-yellow-700 font-medium">Warning: These actions are permanent and cannot be undone.</p>
+        </div>
+        <div class="flex flex-col space-y-3">
+          <button id="suspendAccountBtn" class="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded">
+            <i class="fas fa-ban mr-2"></i>Suspend Account
+          </button>
+          <button id="deleteAccountBtn" class="bg-red-700 hover:bg-red-800 text-white py-2 px-4 rounded">
+            <i class="fas fa-trash-alt mr-2"></i>Permanently Delete Account
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirmation Modal -->
+  <div id="confirmationModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+    <div class="bg-white p-6 rounded-xl w-full max-w-md">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-xl font-bold" id="confirmationTitle">Confirm Action</h3>
+        <button id="closeConfirmationModal" class="text-gray-500 hover:text-gray-700">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div id="confirmationContent" class="mb-4">
+        <p id="confirmationMessage">Are you sure you want to perform this action?</p>
+      </div>
+      <div class="flex justify-end space-x-3">
+        <button id="cancelAction" class="border border-gray-300 px-4 py-2 rounded">Cancel</button>
+        <button id="confirmAction" class="bg-red-500 text-white px-4 py-2 rounded">Confirm</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // Admin credentials
-    const ADMIN_USERNAME = "raju7634457@gmail.com";
-    const ADMIN_PASSWORD = "raju7634457@gmail.com";
+    const ADMIN_USERNAME = "Dharmveer";
+    const ADMIN_PASSWORD = "Raj0011223344";
 
     // Realtime DB refs
     let usersRef = null;
@@ -248,6 +293,9 @@ const firebaseConfig = {
     let withdrawalsCache = {};
     let investmentsCache = {};
     let transactionsCache = {};
+
+    // Current selected user for actions
+    let currentSelectedUserId = null;
 
     const rdb = firebase.database();
 
@@ -292,6 +340,18 @@ const firebaseConfig = {
         document.getElementById('detailModal').classList.add('hidden');
       });
 
+      document.getElementById('closeAccountActionsModal').addEventListener('click', () => {
+        document.getElementById('accountActionsModal').classList.add('hidden');
+      });
+
+      document.getElementById('closeConfirmationModal').addEventListener('click', () => {
+        document.getElementById('confirmationModal').classList.add('hidden');
+      });
+
+      document.getElementById('cancelAction').addEventListener('click', () => {
+        document.getElementById('confirmationModal').classList.add('hidden');
+      });
+
       // Close toast button
       document.getElementById('closeNotification').addEventListener('click', () => {
         document.getElementById('notificationToast').classList.add('hidden');
@@ -308,6 +368,23 @@ const firebaseConfig = {
       document.getElementById('refreshUsers').addEventListener('click', () => {
         console.log("🔄 Refreshing all data");
         fetchOnceAndRenderAll();
+      });
+
+      // Account action buttons
+      document.getElementById('suspendAccountBtn').addEventListener('click', () => {
+        showConfirmation(
+          'Suspend Account',
+          'Are you sure you want to suspend this account? The user will not be able to login or perform any actions.',
+          () => suspendUserAccount(currentSelectedUserId)
+        );
+      });
+
+      document.getElementById('deleteAccountBtn').addEventListener('click', () => {
+        showConfirmation(
+          'Delete Account',
+          'WARNING: This will permanently delete the user account and all associated data. This action cannot be undone!',
+          () => deleteUserAccount(currentSelectedUserId)
+        );
       });
     });
 
@@ -520,9 +597,14 @@ const firebaseConfig = {
             </span>
           </td>
           <td class="py-3 px-4">
-            <button class="text-blue-500 hover:text-blue-700 view-user" data-id="${escapeHtml(user.id)}">
-              <i class="fas fa-eye"></i>
-            </button>
+            <div class="flex space-x-2">
+              <button class="text-blue-500 hover:text-blue-700 view-user" data-id="${escapeHtml(user.id)}">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button class="text-red-500 hover:text-red-700 manage-account" data-id="${escapeHtml(user.id)}">
+                <i class="fas fa-cog"></i>
+              </button>
+            </div>
           </td>
         `;
         tbody.appendChild(row);
@@ -552,7 +634,90 @@ const firebaseConfig = {
         };
       });
 
+      document.querySelectorAll('.manage-account').forEach(btn => {
+        btn.onclick = async function() {
+          const uid = this.dataset.id;
+          currentSelectedUserId = uid;
+          const snap = await rdb.ref('users/' + uid).once('value');
+          const user = snap.val() || {};
+          
+          document.getElementById('accountActionsTitle').textContent = `Manage Account: ${user.username || 'Unknown User'}`;
+          document.getElementById('accountActionsModal').classList.remove('hidden');
+        };
+      });
+
       document.getElementById('usersPaginationInfo').textContent = `Showing 1 to ${usersArr.length} of ${usersArr.length} entries`;
+    }
+
+    function showConfirmation(title, message, confirmCallback) {
+      document.getElementById('confirmationTitle').textContent = title;
+      document.getElementById('confirmationMessage').textContent = message;
+      document.getElementById('confirmationModal').classList.remove('hidden');
+      
+      // Remove any existing event listeners
+      const confirmBtn = document.getElementById('confirmAction');
+      const newConfirmBtn = confirmBtn.cloneNode(true);
+      confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+      
+      // Add new event listener
+      newConfirmBtn.addEventListener('click', () => {
+        document.getElementById('confirmationModal').classList.add('hidden');
+        document.getElementById('accountActionsModal').classList.add('hidden');
+        confirmCallback();
+      });
+    }
+
+    async function suspendUserAccount(userId) {
+      try {
+        await rdb.ref('users/' + userId).update({
+          status: 'suspended',
+          suspendedAt: Date.now()
+        });
+        
+        showToast("Account suspended successfully!");
+        console.log(`✅ Account ${userId} suspended`);
+      } catch (error) {
+        console.error("❌ Error suspending account:", error);
+        showToast("Error suspending account!");
+      }
+    }
+
+    async function deleteUserAccount(userId) {
+      try {
+        // Delete user data from all relevant locations
+        await rdb.ref('users/' + userId).remove();
+        await rdb.ref('presence/' + userId).remove();
+        
+        // Remove user's deposit requests
+        const depositSnap = await rdb.ref('depositRequests').orderByChild('userId').equalTo(userId).once('value');
+        if (depositSnap.exists()) {
+          const depositKeys = Object.keys(depositSnap.val());
+          for (const key of depositKeys) {
+            await rdb.ref('depositRequests/' + key).remove();
+          }
+        }
+        
+        // Remove user's withdrawal requests
+        const withdrawalSnap = await rdb.ref('withdrawalRequests').orderByChild('userId').equalTo(userId).once('value');
+        if (withdrawalSnap.exists()) {
+          const withdrawalKeys = Object.keys(withdrawalSnap.val());
+          for (const key of withdrawalKeys) {
+            await rdb.ref('withdrawalRequests/' + key).remove();
+          }
+        }
+        
+        // Remove user's transactions
+        await rdb.ref('userTransactions/' + userId).remove();
+        
+        // Remove user's investments
+        await rdb.ref('investments/' + userId).remove();
+        
+        showToast("Account permanently deleted!");
+        console.log(`✅ Account ${userId} and all associated data deleted`);
+      } catch (error) {
+        console.error("❌ Error deleting account:", error);
+        showToast("Error deleting account!");
+      }
     }
 
 function renderPendingDeposits() {
